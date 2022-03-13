@@ -41,7 +41,6 @@ def check_marks(timeout: int):
             return response_json.get('new_attempts', '')
         params['timestamp'] = response_json['timestamp_to_request']    
         
-        
 def format_marks(lesson_info: dict):
     lesson_title = lesson_info['lesson_title']
     if not lesson_info.get('is_negative', ''):
