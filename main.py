@@ -1,60 +1,84 @@
 import requests
 import os
 from telegram import Bot
-from time import sleep
 
 
-to_load_from_env = [
-    'TG_TOKEN',
-    'TG_CHAT_ID',
-    'DVMN_TOKEN'
-]
-config = dict((x, os.environ[x]) for x in to_load_from_env)
+TG_TOKEN = os.environ['TG_TOKEN']
+TG_CHAT_ID = os.environ['TG_CHAT_ID']
+DVMN_TOKEN = os.environ['DVMN_TOKEN']
 
-TIMEOUT = 100
+DVMN_TIMEOUT = 100
 
 
-def check_marks(timeout: int):
-    headers = {}
-    params = {}
-    headers['Authorization'] = f'Token {config["DVMN_TOKEN"]}'
+def check_marks(timestamp):
+    params = {'timestamp': timestamp}
+    headers = {'Authorization': f'Token {DVMN_TOKEN}'}
     url = 'https://dvmn.org/api/long_polling/'
-    while True:
-        try:
-            response = requests.get(
-                url=url, 
-                headers=headers, 
-                timeout=timeout,
-                params=params
-            )
-            response.raise_for_status()
-        except requests.exceptions.HTTPError:
-            continue
-        except requests.exceptions.ReadTimeout:
-            continue
-        except ConnectionError:
-            sleep(5)
 
-        response_json = response.json()
-        
-        if response_json.get('status', '') != 'timeout':
-            return response_json.get('new_attempts', '')
-        params['timestamp'] = response_json['timestamp_to_request']    
-        
-def format_marks(lesson_info: dict):
-    lesson_title = lesson_info['lesson_title']
-    if not lesson_info.get('is_negative', ''):
-        return f'Работа "{lesson_title}" проверена. \\n\\nРабота принята.'
-    return f'Работа "{lesson_title}" проверена. \\n\\nК сожалению в работе нашлись ошибки.'
+    response = requests.get(
+        url=url, 
+        headers=headers, 
+        timeout=DVMN_TIMEOUT,
+        params=params
+    )
+    response.raise_for_status()
+    
+    dvmn_data = response.json()
+
+    timestamp = dvmn_data.get('last_attempt_timestamp') or\
+                dvmn_data.get('timestamp_to_request')
+    
+    lessons_info = dvmn_data.get('new_attempts')
+    return lessons_info, timestamp
+
+    
+def format_messages(lessons_info):
+    messages = []
+    for lesson in lessons_info:
+        if not lesson.get('is_negative'):
+            messages.append(
+                f'''
+                Работа \"{lesson["lesson_title"]}\" проверена.
+                \n{lesson["lesson_url"]}
+                \nРабота принята.
+                '''
+            )
+            continue
+        messages.append(
+            f'''
+            Работа \"{lesson["lesson_title"]}\" проверена.
+            \n{lesson["lesson_url"]}
+            \nК сожалению в работе нашлись ошибки.
+            '''
+        )
+    return messages
+
 
 def main():
-    bot = Bot(token=config["TG_TOKEN"])
+    bot = Bot(token=TG_TOKEN)
+    timestamp = None
     while True:
-        marks = check_marks(TIMEOUT)
-        bot.send_message(
-            text=format_marks(marks), 
-            chat_id=config["TG_CHAT_ID"]
-        )
+        
+        try:
+            lessons_info, timestamp = check_marks(timestamp)
+        except requests.exceptions.HTTPError:
+            print('HTTPError')
+            continue
+        except requests.exceptions.ReadTimeout:
+            print('ReadTimeout')
+            continue
+        except ConnectionError:
+            print('ConnectionError')
+            continue
+            
+        if not lessons_info:
+            continue
+            
+        for message in format_messages(lessons_info):
+            bot.send_message(
+                text=message, 
+                chat_id=TG_CHAT_ID
+            )
 
         
 if __name__ == '__main__':
