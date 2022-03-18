@@ -1,8 +1,8 @@
 import requests
 import os
-
+import traceback
 from telegram import Bot
-import utils
+from utils import get_logger 
 
     
 TG_TOKEN = os.environ['TG_TOKEN']
@@ -56,7 +56,7 @@ def format_messages(lessons_info):
 
 def main():
     log_bot = Bot(token=TG_LOGS_TOKEN)
-    logger = utils.get_logger(__name__, log_bot, TG_CHAT_ID)
+    logger = get_logger(__name__, log_bot, TG_CHAT_ID)
 
     logger.info('Starting notification messages bot')
     messages_bot = Bot(token=TG_TOKEN)
@@ -65,25 +65,29 @@ def main():
     while True:
 
         try:
+
             lessons_info, timestamp = check_marks(timestamp)
             
             if not lessons_info:
-            continue
+                continue
             
-        for message in format_messages(lessons_info):
-            messages_bot.send_message(
-                text=message, 
-                chat_id=TG_CHAT_ID
-            )
+            for message in format_messages(lessons_info):
+                messages_bot.send_message(
+                    text=message, 
+                    chat_id=TG_CHAT_ID
+                )
             
         except requests.exceptions.HTTPError:
             logger.error('HTTPError messages bot')
+            logger.error(traceback.format_exc())
             continue
         except requests.exceptions.ReadTimeout:
             logger.error('ReadTimeout messages bot')
+            logger.error(traceback.format_exc())
             continue
         except ConnectionError:
             logger.error('ConnectionError messages bot')
+            logger.error(traceback.format_exc())
             continue
         
         
