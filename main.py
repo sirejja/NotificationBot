@@ -1,9 +1,12 @@
 import requests
 import os
+
 from telegram import Bot
+import utils
 
-
+    
 TG_TOKEN = os.environ['TG_TOKEN']
+TG_LOGS_TOKEN = os.environ['TG_LOGS_TOKEN']
 TG_CHAT_ID = os.environ['TG_CHAT_ID']
 DVMN_TOKEN = os.environ['DVMN_TOKEN']
 
@@ -14,7 +17,6 @@ def check_marks(timestamp):
     params = {'timestamp': timestamp}
     headers = {'Authorization': f'Token {DVMN_TOKEN}'}
     url = 'https://dvmn.org/api/long_polling/'
-
     response = requests.get(
         url=url, 
         headers=headers, 
@@ -22,9 +24,7 @@ def check_marks(timestamp):
         params=params
     )
     response.raise_for_status()
-    
     dvmn_data = response.json()
-
     timestamp = dvmn_data.get('last_attempt_timestamp') or\
                 dvmn_data.get('timestamp_to_request')
     
@@ -55,31 +55,37 @@ def format_messages(lessons_info):
 
 
 def main():
-    bot = Bot(token=TG_TOKEN)
+    log_bot = Bot(token=TG_LOGS_TOKEN)
+    logger = utils.get_logger(__name__, log_bot, TG_CHAT_ID)
+
+    logger.info('Starting notification messages bot')
+    messages_bot = Bot(token=TG_TOKEN)
     timestamp = None
+
     while True:
-        
+
         try:
             lessons_info, timestamp = check_marks(timestamp)
-        except requests.exceptions.HTTPError:
-            print('HTTPError')
-            continue
-        except requests.exceptions.ReadTimeout:
-            print('ReadTimeout')
-            continue
-        except ConnectionError:
-            print('ConnectionError')
-            continue
             
-        if not lessons_info:
+            if not lessons_info:
             continue
             
         for message in format_messages(lessons_info):
-            bot.send_message(
+            messages_bot.send_message(
                 text=message, 
                 chat_id=TG_CHAT_ID
             )
-
+            
+        except requests.exceptions.HTTPError:
+            logger.error('HTTPError messages bot')
+            continue
+        except requests.exceptions.ReadTimeout:
+            logger.error('ReadTimeout messages bot')
+            continue
+        except ConnectionError:
+            logger.error('ConnectionError messages bot')
+            continue
+        
         
 if __name__ == '__main__':
     main()
