@@ -1,21 +1,16 @@
 import requests
-import os
 import traceback
 from telegram import Bot
-from utils import get_logger 
+from utils import get_logger
+from settings import get_config
 
-    
-TG_TOKEN = os.environ['TG_TOKEN']
-TG_LOGS_TOKEN = os.environ['TG_LOGS_TOKEN']
-TG_CHAT_ID = os.environ['TG_CHAT_ID']
-DVMN_TOKEN = os.environ['DVMN_TOKEN']
-
+config = get_config()
 DVMN_TIMEOUT = 100
 
 
 def check_marks(timestamp):
     params = {'timestamp': timestamp}
-    headers = {'Authorization': f'Token {DVMN_TOKEN}'}
+    headers = {'Authorization': f'Token {config["DVMN_TOKEN"]}'}
     url = 'https://dvmn.org/api/long_polling/'
     response = requests.get(
         url=url, 
@@ -55,11 +50,11 @@ def format_messages(lessons_info):
 
 
 def main():
-    log_bot = Bot(token=TG_LOGS_TOKEN)
-    logger = get_logger(__name__, log_bot, TG_CHAT_ID)
+    log_bot = Bot(token=config['TG_LOGS_TOKEN'])
+    logger = get_logger(__name__, log_bot, config['TG_CHAT_ID'])
 
     logger.info('Starting notification messages bot')
-    messages_bot = Bot(token=TG_TOKEN)
+    messages_bot = Bot(token=config['TG_TOKEN'])
     timestamp = None
 
     while True:
@@ -74,7 +69,7 @@ def main():
             for message in format_messages(lessons_info):
                 messages_bot.send_message(
                     text=message, 
-                    chat_id=TG_CHAT_ID
+                    chat_id=config['TG_CHAT_ID']
                 )
             
         except requests.exceptions.HTTPError:
