@@ -1,4 +1,3 @@
-from ast import Return
 import os
 
 def get_config():
