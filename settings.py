@@ -1,7 +1,6 @@
 import os
 
 def get_config():
-    config = {}
     env_names = ['TG_TOKEN', 'TG_LOGS_TOKEN', 'TG_CHAT_ID', 'DVMN_TOKEN']
     try: 
         return {
