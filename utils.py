@@ -22,12 +22,3 @@ def get_bot_handler(tg_bot, chat_id):
     bot_handler.setLevel(logging.DEBUG)
     bot_handler.setFormatter(logging.Formatter(_log_format))
     return bot_handler
-
-
-def get_logger(logger_name, tg_bot, chat_id):
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(logger_name)
-    logger.addHandler(
-        get_bot_handler(tg_bot, chat_id)
-    )
-    return logger

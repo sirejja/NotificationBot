@@ -1,21 +1,23 @@
 import requests
-import traceback
+import logging
+import os
+import time
 from telegram import Bot
-from utils import get_logger
-from settings import get_config
-
-config = get_config()
-DVMN_TIMEOUT = 100
+from utils import get_bot_handler
+from dotenv import load_dotenv
 
 
-def check_marks(timestamp):
+logger = logging.getLogger(__file__)
+
+
+def check_marks(timestamp, dvmn_token, dvmn_timeout):
     params = {'timestamp': timestamp}
-    headers = {'Authorization': f'Token {config["DVMN_TOKEN"]}'}
+    headers = {'Authorization': f'Token {dvmn_token}'}
     url = 'https://dvmn.org/api/long_polling/'
     response = requests.get(
         url=url, 
         headers=headers, 
-        timeout=DVMN_TIMEOUT,
+        timeout=dvmn_timeout,
         params=params
     )
     response.raise_for_status()
@@ -50,18 +52,31 @@ def format_messages(lessons_info):
 
 
 def main():
-    log_bot = Bot(token=config['TG_LOGS_TOKEN'])
-    logger = get_logger(__name__, log_bot, config['TG_CHAT_ID'])
+
+    load_dotenv()
+    TG_TOKEN = os.environ['TG_TOKEN'] 
+    TG_LOGS_TOKEN = os.environ['TG_LOGS_TOKEN'] 
+    TG_CHAT_ID = os.environ['TG_CHAT_ID'] 
+    DVMN_TOKEN = os.environ['DVMN_TOKEN'] 
+    DVMN_TIMEOUT = 100
+
+    logging.basicConfig(level=logging.INFO)
+    logger.addHandler(
+        get_bot_handler(
+            Bot(token=TG_LOGS_TOKEN), 
+            TG_CHAT_ID
+        )
+    )
 
     logger.info('Starting notification messages bot')
-    messages_bot = Bot(token=config['TG_TOKEN'])
+    messages_bot = Bot(token=TG_TOKEN)
     timestamp = None
 
     while True:
 
         try:
-
-            lessons_info, timestamp = check_marks(timestamp)
+            
+            lessons_info, timestamp = check_marks(timestamp, DVMN_TOKEN, DVMN_TIMEOUT)
             
             if not lessons_info:
                 continue
@@ -69,20 +84,20 @@ def main():
             for message in format_messages(lessons_info):
                 messages_bot.send_message(
                     text=message, 
-                    chat_id=config['TG_CHAT_ID']
+                    chat_id=TG_CHAT_ID
                 )
             
         except requests.exceptions.HTTPError:
-            logger.error('HTTPError messages bot')
-            logger.error(traceback.format_exc())
+            logger.exception('HTTPError messages bot')
+            time.sleep(60)
             continue
         except requests.exceptions.ReadTimeout:
-            logger.error('ReadTimeout messages bot')
-            logger.error(traceback.format_exc())
+            logger.exception('ReadTimeout. Check the API docs')
+            time.sleep(60)
             continue
         except ConnectionError:
-            logger.error('ConnectionError messages bot')
-            logger.error(traceback.format_exc())
+            logger.exception('ConnectionError messages bot')
+            time.sleep(60)
             continue
         
         
