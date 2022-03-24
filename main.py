@@ -93,7 +93,6 @@ def main():
             continue
         except requests.exceptions.ReadTimeout:
             logger.exception('ReadTimeout. Check the API docs')
-            time.sleep(60)
             continue
         except ConnectionError:
             logger.exception('ConnectionError messages bot')
